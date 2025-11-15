@@ -1,107 +1,191 @@
-# Created by Edwar Ricardo — https://github.com/El1Leon
+<!--
+  Project by Edwar Ricardo
+  GitHub: https://github.com/El1Leon
+-->
 
-# HuggingFace + llama.cpp on macOS 26 (Metal)
+# llama.cpp Metal on macOS 26+
+### Run local LLaMA models on Apple Silicon (Metal) with Hugging Face support
 
-This repository explains the exact steps for setting up Apple Silicon Macs (macOS 26+) to run [`llama.cpp`](https://github.com/ggerganov/llama.cpp) with Metal acceleration, download GGUF checkpoints from Hugging Face, and launch `llama-cli` safely using generic, public-ready instructions.
+This guide explains exactly how to reproduce the working setup for:
+- macOS 26 (Tahoe)
+- Apple Silicon (M1/M2/M3/M4/M5)
+- llama.cpp **Metal acceleration enabled**
+- Hugging Face HF CLI (v0.36.0) working properly
+- Python (3.10.x recommended)
+- GGUF model loading and execution through `llama-cli`
 
-## Overview
-1. Install the system dependencies (Homebrew, Command Line Tools, pyenv, Python 3.12).
-2. Configure the Hugging Face CLI (`huggingface_hub` 0.36.0) and authenticate with a token.
-3. Download `llama.cpp`, configure it with Metal flags, and build via Ninja.
-4. Fetch GGUF models into `~/models/<model-name>.gguf` using `hf download`.
-5. Run models with `./build/bin/llama-cli -m ~/models/<model>.gguf --n-gpu-layers 100 -p "Hello"`.
-6. Reference the troubleshooting guide for GGUF, Metal, token, and macOS issues.
+The purpose of this repo is to give users a **fully working, verified setup** that avoids all the hidden macOS 26 pitfalls.
 
-## macOS 26+ Compatibility Notes
-- Requires Apple Silicon hardware (arm64) with Metal support enabled.
-- Ensure the latest Xcode Command Line Tools are installed (`xcode-select --install`).
-- SIP and Gatekeeper can quarantine binaries copied from external drives—keep the repo under `~/Projects` or another trusted location.
+---
 
-## Install Dependencies
-Run `./install.sh` to automate everything or follow the steps manually:
-1. Install/upgrade Homebrew formulas:
-   ```bash
-   brew update
-   brew install cmake ninja git jq pyenv pipx
-   ```
-2. Initialize pyenv in your shell (`eval "$(pyenv init -)"`).
-3. Install Python 3.12 and make it local to this project:
-   ```bash
-   pyenv install 3.12.0
-   pyenv local 3.12.0
-   python --version  # confirm 3.12.x
-   ```
-4. Ensure pipx is available: `pipx ensurepath` then open a new terminal.
-5. Install the Hugging Face CLI (v0.36.0):
-   ```bash
-   pipx install "huggingface_hub[cli]==0.36.0" --force
-   hf --version  # should show 0.36.0
-   ```
+## 📦 1. Requirements
 
-## Generate & Use a Hugging Face Token
-1. Go to https://huggingface.co/settings/tokens and create a read token.
-2. Run `hf auth login` and paste the token when prompted (or use the browser/device flow).
-3. Tokens are stored in your user cache, never in this repository.
+Before starting, make sure you have:
 
-## Download llama.cpp
-Clone the upstream project inside this folder (handled automatically by `./build.sh`):
+| Tool | Required Version |
+|------|------------------|
+| macOS | **26+ (Tahoe)** |
+| Xcode | Latest (for Metal + clang 17) |
+| Python | **3.10.x** |
+| Homebrew | Recommended |
+| Ninja | Required by llama.cpp |
+| CMake | Required by llama.cpp |
+| HuggingFace Hub CLI | **0.36.0** (stable + compatible) |
+
+Install base dependencies:
+
+```zsh
+brew install cmake ninja python@3.10 jq
 ```
+
+---
+
+## 📥 2. Download llama.cpp (Official)
+
+This repo uses the official upstream llama.cpp:
+
 https://github.com/ggerganov/llama.cpp
-```
-This repository is only a wrapper; it expects the sources under `./llama.cpp`.
 
-## Build llama.cpp with Metal
-Use `./build.sh` or run the commands directly:
-```bash
-cmake -S ./llama.cpp -B ./llama.cpp/build -G Ninja \
-  -DGGML_METAL=ON \
-  -DGGML_ACCELERATE=ON
-ninja -C ./llama.cpp/build
-```
-These flags ensure Metal kernels and Accelerate BLAS are enabled for Apple Silicon.
+You can clone it manually:
 
-## Download GGUF Models (hf download 0.36.0)
-Always store models inside `~/models/<model-name>.gguf`:
-```bash
-mkdir -p ~/models
-hf download <repo> --include "<file>.gguf" --local-dir ~/models
+```zsh
+git clone https://github.com/ggerganov/llama.cpp.git
 ```
-Examples:
-```bash
-hf download meta-llama/Meta-Llama-3.1-8B-Instruct-GGUF \
+
+Or rely on this repo’s script:
+
+```zsh
+./build.sh
+```
+
+The script will automatically:
+- clone llama.cpp if it isn’t present
+- apply CMake Metal flags:
+  - `-DGGML_METAL=ON`
+  - `-DGGML_ACCELERATE=ON`
+- build binaries into:
+
+```
+llama.cpp/build/bin/
+```
+
+---
+
+## ⚙️ 3. Install Hugging Face CLI (Correct Version)
+
+macOS 26 breaks newer HuggingFace CLI releases, so install **v0.36.0**:
+
+```zsh
+pip install huggingface_hub==0.36.0
+```
+
+Verify:
+
+```zsh
+huggingface-cli --help
+```
+
+Login:
+
+```zsh
+hf auth login
+```
+
+You *do not* need to store your token as a Git credential — choose **“n”** when asked.
+
+---
+
+## 📥 4. Download a GGUF Model (Example)
+
+You can list files via the API:
+
+```zsh
+curl -s https://huggingface.co/api/models/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF | jq '.siblings[].rfilename'
+```
+
+Download the quantized GGUF (example):
+
+```zsh
+hf download bartowski/Meta-Llama-3.1-8B-Instruct-GGUF \
   --include "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf" \
   --local-dir ~/models
-hf download TheBloke/Qwen2-7B-Instruct-GGUF \
-  --include "*Q4_K_M.gguf" \
-  --local-dir ~/models
 ```
-Add `--resume-download` to recover interrupted transfers and set `HF_HUB_ENABLE_HF_TRANSFER=1` for faster downloads.
 
-## Run GGUF Models with llama-cli
-Launch `./run.sh` or call the binary manually:
-```bash
-./llama.cpp/build/bin/llama-cli \
-  -m ~/models/<model>.gguf \
+The file should appear at:
+
+```
+~/models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+```
+
+---
+
+## 🚀 5. Run llama.cpp with Metal
+
+From inside `llama.cpp`:
+
+```zsh
+./build/bin/llama-cli \
+  -m ~/models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf \
   --n-gpu-layers 100 \
-  -p "Hello"
+  -p "Hello!"
 ```
-Pass additional flags (`--ctx-size`, `--batch-size`, `--temperature`, etc.) as needed.
 
-## Common Errors & Fixes
-- **GGUF “invalid magic”** – Delete the file from `~/models`, rerun `hf download ... --resume-download`, and verify the file size/hash from the Hugging Face repo.
-- **Metal backend not detected** – Ensure you built with `-DGGML_METAL=ON -DGGML_ACCELERATE=ON`, delete `./llama.cpp/build`, rerun `./build.sh`, and confirm you’re on arm64 macOS 26.
-- **Hugging Face token issues** – Re-run `hf auth login`, regenerate tokens from your account page, and confirm `HF_TOKEN` is not empty in CI environments.
-- **macOS 26 SDK problems** – Reinstall Command Line Tools after OS updates, clear `xcode-select --switch /Library/Developer/CommandLineTools`, and make sure Ninja/CMake see the new SDK path.
+If everything is correct, you will see Metal initialization:
 
-## Troubleshooting
-See [`troubleshooting.md`](./troubleshooting.md) for expanded instructions on:
-- GGUF loading failures
-- Metal backend detection
-- HF credential handling
-- macOS 26 CMake/SDK quirks
+```
+ggml_metal_device_init: GPU name: Apple M1 Max
+ggml_metal_device_init: simdgroup reduction = true
+...
+load_tensors: offloaded 33/33 layers to GPU
+```
 
-## Next Steps
-1. `./install.sh`
-2. `./build.sh`
-3. `hf download <repo> --include "<file>" --local-dir ~/models`
-4. `./run.sh "Hello from macOS 26"`
+Then the model will load and become interactive.
+
+---
+
+## 🛠 Included Scripts in This Repo
+
+| Script | Purpose |
+|--------|---------|
+| **install.sh** | Installs Python + HF CLI + Brew deps |
+| **build.sh** | Clones llama.cpp and builds Metal binaries |
+| **run.sh** | Runs the model with Metal-accelerated llama-cli |
+| **troubleshooting.md** | Fixes every known macOS 26 error |
+
+Run them in order:
+
+```zsh
+./install.sh
+./build.sh
+./run.sh
+```
+
+---
+
+## 🧩 Troubleshooting
+
+See: `troubleshooting.md`
+
+Includes fixes for:
+
+- HF CLI not found  
+- GGUF not recognized  
+- Metal backend not detected  
+- “tensor API disabled” warnings  
+- macOS 26 linker quirks  
+- Python/pyenv conflicts
+
+---
+
+## 📚 Summary
+
+You now have a fully working:
+
+- macOS 26 + Metal llama.cpp setup  
+- HuggingFace GGUF downloader  
+- Python 3.10-compatible environment  
+- Reliable build + run scripts  
+
+This repo exists so you don’t have to repeat hours of debugging — everything here has been tested end-to-end.
+
+Enjoy running LLaMA locally on Metal! 🚀🔥
