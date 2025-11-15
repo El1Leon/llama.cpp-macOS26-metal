@@ -1,0 +1,9 @@
+# Created by Edwar Ricardo — https://github.com/El1Leon
+__pycache__/
+*.gguf
+huggingface/
+build/
+llama.cpp/build/
+.DS_Store
+.cache/
+.env
