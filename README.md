@@ -11,7 +11,7 @@ This guide explains exactly how to reproduce the working setup for:
 - Apple Silicon (M1/M2/M3/M4/M5)
 - llama.cpp **Metal acceleration enabled**
 - Hugging Face HF CLI (v0.36.0) working properly
-- Python (3.10.x recommended)
+- Python (3.12.x recommended)
 - GGUF model loading and execution through `llama-cli`
 
 The purpose of this repo is to give users a **fully working, verified setup** that avoids all the hidden macOS 26 pitfalls.
@@ -26,17 +26,19 @@ Before starting, make sure you have:
 |------|------------------|
 | macOS | **26+ (Tahoe)** |
 | Xcode | Latest (for Metal + clang 17) |
-| Python | **3.10.x** |
+| Python | **3.12.x** |
 | Homebrew | Recommended |
 | Ninja | Required by llama.cpp |
 | CMake | Required by llama.cpp |
 | HuggingFace Hub CLI | **0.36.0** (stable + compatible) |
 
-Install base dependencies:
+Install base dependencies (skip if you plan to run `./install.sh`, which already does this):
 
 ```zsh
-brew install cmake ninja python@3.10 jq
+brew install cmake ninja python@3.12 jq
 ```
+
+> **Shortcut:** running `./install.sh` handles the Homebrew packages, installs `pyenv` 3.12.0, and sets up `pipx` + Hugging Face CLI automatically. Use it whenever possible to stay aligned with these docs.
 
 ---
 
@@ -73,25 +75,20 @@ llama.cpp/build/bin/
 
 ## ⚙️ 3. Install Hugging Face CLI (Correct Version)
 
-macOS 26 breaks newer HuggingFace CLI releases, so install **v0.36.0**:
+macOS 26 breaks newer HuggingFace CLI releases, so install **v0.36.0** with `pipx` (recommended) or pip:
 
 ```zsh
-pip install huggingface_hub==0.36.0
+pipx ensurepath
+pipx install "huggingface_hub[cli]==0.36.0" --force
 ```
 
-Verify:
-
-```zsh
-huggingface-cli --help
-```
-
-Login:
+Then authenticate:
 
 ```zsh
 hf auth login
 ```
 
-You *do not* need to store your token as a Git credential — choose **“n”** when asked.
+You *do not* need to store your token as a Git credential — choose **“n”** when asked. If you prefer not to use pipx, `pip install huggingface_hub==0.36.0` works as well, but you’ll need to manage PATH yourself.
 
 ---
 
@@ -183,7 +180,7 @@ You now have a fully working:
 
 - macOS 26 + Metal llama.cpp setup  
 - HuggingFace GGUF downloader  
-- Python 3.10-compatible environment  
+- Python 3.12-compatible environment  
 - Reliable build + run scripts  
 
 This repo exists so you don’t have to repeat hours of debugging — everything here has been tested end-to-end.
