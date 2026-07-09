@@ -92,39 +92,48 @@ You *do not* need to store your token as a Git credential — choose **“n”**
 
 ---
 
-## 📥 4. Download a GGUF Model (Example)
+## 📥 4. Download a Small GGUF Model
 
-You can list files via the API:
-
-```zsh
-curl -s https://huggingface.co/api/models/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF | jq '.siblings[].rfilename'
-```
-
-Download the quantized GGUF (example):
+For a fast first run, use **Qwen2.5 0.5B Instruct**. It is much smaller than an 8B model and is a better default for confirming that Metal, `hf`, and `llama.cpp` all work.
 
 ```zsh
-hf download bartowski/Meta-Llama-3.1-8B-Instruct-GGUF \
-  --include "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf" \
-  --local-dir ~/models
+mkdir -p "$HOME/models/qwen-small"
+hf download bartowski/Qwen2.5-0.5B-Instruct-GGUF --include Qwen2.5-0.5B-Instruct-Q4_K_M.gguf --local-dir "$HOME/models/qwen-small"
 ```
+
+> Keep the `hf download` command on one line when pasting it into zsh. If you split the line after `--local-dir`, the shell will treat the model directory as a separate command.
 
 The file should appear at:
 
 ```
-~/models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+~/models/qwen-small/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+```
+
+### Optional: larger model
+
+After the small model works, you can try a larger 8B model for better responses:
+
+```zsh
+mkdir -p "$HOME/models/llama-8b"
+hf download bartowski/Meta-Llama-3.1-8B-Instruct-GGUF \
+  --include "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf" \
+  --local-dir "$HOME/models/llama-8b"
+```
+
+You can list available files via the Hugging Face API:
+
+```zsh
+curl -s https://huggingface.co/api/models/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF | jq '.siblings[].rfilename'
 ```
 
 ---
 
 ## 🚀 5. Run llama.cpp with Metal
 
-From inside `llama.cpp`:
+From the repo root:
 
 ```zsh
-./build/bin/llama-cli \
-  -m ~/models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf \
-  --n-gpu-layers 100 \
-  -p "Hello!"
+MODEL_DIR="$HOME/models/qwen-small" ./run.sh Hello
 ```
 
 If everything is correct, you will see Metal initialization:
@@ -133,10 +142,10 @@ If everything is correct, you will see Metal initialization:
 ggml_metal_device_init: GPU name: Apple M1 Max
 ggml_metal_device_init: simdgroup reduction = true
 ...
-load_tensors: offloaded 33/33 layers to GPU
+load_tensors: offloaded ... layers to GPU
 ```
 
-Then the model will load and become interactive.
+Then the model will load and print a response.
 
 ---
 
@@ -146,7 +155,7 @@ Then the model will load and become interactive.
 |--------|---------|
 | **install.sh** | Installs Python + HF CLI + Brew deps |
 | **build.sh** | Clones llama.cpp and builds Metal binaries |
-| **run.sh** | Runs the model with Metal-accelerated llama-cli |
+| **run.sh** | Runs a GGUF model with Metal-accelerated llama-cli |
 | **troubleshooting.md** | Fixes every known macOS 26 error |
 
 Run them in order:
@@ -154,7 +163,21 @@ Run them in order:
 ```zsh
 ./install.sh
 ./build.sh
-./run.sh
+mkdir -p "$HOME/models/qwen-small"
+hf download bartowski/Qwen2.5-0.5B-Instruct-GGUF --include Qwen2.5-0.5B-Instruct-Q4_K_M.gguf --local-dir "$HOME/models/qwen-small"
+MODEL_DIR="$HOME/models/qwen-small" ./run.sh Hello
+```
+
+`run.sh` uses the first `.gguf` file it finds under `MODEL_DIR`, or a specific `MODEL_PATH` if you provide one:
+
+```zsh
+MODEL_PATH=/path/to/model.gguf ./run.sh "Hello!"
+```
+
+You can also override runtime defaults:
+
+```zsh
+GPU_LAYERS=999 N_PREDICT=256 ./run.sh "Explain Metal acceleration briefly."
 ```
 
 ---

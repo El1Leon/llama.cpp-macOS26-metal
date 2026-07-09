@@ -3,6 +3,7 @@ __pycache__/
 *.gguf
 huggingface/
 build/
+llama.cpp/
 llama.cpp/build/
 .DS_Store
 .cache/
